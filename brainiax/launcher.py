@@ -9,7 +9,6 @@ from brainiax.settings.settings import Settings
 
 logger = logging.getLogger(__name__)
 
-
 def create_app(root_injector: Injector) -> FastAPI:
 
     # Start the API
