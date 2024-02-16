@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "brainiax"
+version = "0.1"
+description = "brainiax : Your Personalised Academic Aid AI chatbot"
+authors = ["Zuhair"]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.12"
+fastapi = { extras = ["all"], version = "^0.103.1" }
+boto3 = "^1.28.56"
+injector = "^0.21.0"
+pyyaml = "^6.0.1"
+python-multipart = "^0.0.6"
+pypdf = "^3.16.2"
+llama-index = { extras = ["local_models"], version = "0.9.3" }
+watchdog = "^3.0.0"
+qdrant-client = "^1.6.9"
+gradio = "^4.4.1"
+llama-cpp-python = "^0.2.23"
+numpy = "1.26.0"
+sentence-transformers = "^2.2.2"
+torch = ">=2.0.0, !=2.0.1, !=2.1.0"
+transformers = "^4.34.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
