@@ -81,7 +81,7 @@ class DataSettings(BaseModel):
 
 
 class LLMSettings(BaseModel):
-    mode: Literal["local", "openai", "sagemaker", "mock"]
+    mode: Literal["local"]
     max_new_tokens: int = Field(
         256,
         description="The maximum number of token that the LLM is authorized to generate in one completion.",
@@ -135,19 +135,6 @@ class EmbeddingSettings(BaseModel):
             "Do not go too high with this number, as it might cause memory issues. (especially in `parallel` mode)\n"
             "Do not set it higher than your number of threads of your CPU."
         ),
-    )
-
-
-class SagemakerSettings(BaseModel):
-    llm_endpoint_name: str
-    embedding_endpoint_name: str
-
-
-class OpenAISettings(BaseModel):
-    api_key: str
-    model: str = Field(
-        "gpt-3.5-turbo",
-        description=("OpenAI Model to use. Example: 'gpt-4'."),
     )
 
 
@@ -217,35 +204,14 @@ class Settings(BaseModel):
     llm: LLMSettings
     embedding: EmbeddingSettings
     local: LocalSettings
-    sagemaker: SagemakerSettings
-    openai: OpenAISettings
     vectorstore: VectorstoreSettings
     qdrant: QdrantSettings | None = None
 
-
-"""
-This is visible just for DI or testing purposes.
-
-Use dependency injection or `settings()` method instead.
-"""
 unsafe_settings = load_active_settings()
 
-"""
-This is visible just for DI or testing purposes.
-
-Use dependency injection or `settings()` method instead.
-"""
 unsafe_typed_settings = Settings(**unsafe_settings)
 
-
 def settings() -> Settings:
-    """Get the current loaded settings from the DI container.
-
-    This method exists to keep compatibility with the existing code,
-    that require global access to the settings.
-
-    For regular components use dependency injection instead.
-    """
     from brainiax.di import global_injector
 
     return global_injector.get(Settings)
