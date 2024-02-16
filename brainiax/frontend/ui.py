@@ -49,7 +49,7 @@ class Source(BaseModel):
 
 
 @singleton
-class PrivateGptUi:
+class BrainiaxUi:
     @inject
     def __init__(
         self,
@@ -271,7 +271,7 @@ class PrivateGptUi:
 
 
 if __name__ == "__main__":
-    ui = global_injector.get(PrivateGptUi)
+    ui = global_injector.get(BrainiaxUi)
     _blocks = ui.get_ui_blocks()
     _blocks.queue()
     _blocks.launch(debug=False, show_api=False)

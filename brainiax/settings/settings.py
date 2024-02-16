@@ -63,7 +63,7 @@ class ServerSettings(BaseModel):
     env_name: str = Field(
         description="Name of the environment (prod, staging, local...)"
     )
-    port: int = Field(description="Port of PrivateGPT FastAPI server, defaults to 8001")
+    port: int = Field(description="Port of Brainiax FastAPI server, defaults to 8001")
     cors: CorsSettings = Field(
         description="CORS configuration", default=CorsSettings(enabled=False)
     )
