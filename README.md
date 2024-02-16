@@ -12,15 +12,15 @@
    ```
    poetry config virtualenvs.in-project true
    ```
-3. Install project dependencies using Poetry:
-
-   ```
-   poetry install
-   ```
-4. Run the setup file:
+3. Run the setup file:
 
    ```
    python setup
+   ```
+4. Install project dependencies using Poetry:
+
+   ```
+   poetry install
    ```
 ## Running the Project
 
@@ -58,4 +58,4 @@ If CPU usage is sufficient for your needs, the above steps are enough.
 ### Additional Note
 - For convenience, a pre-configured virtual environment file is available in the release section of the project. If you choose to use this pre-configured virtual environment, please note that you still need to:
   - Have the [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) installed for GPU usage.
-  - Perform the [first two steps of the installation process](#installation) mentioned above (installing Poetry and configuring it to create virtual environments within the project directory) before activating the provided virtual environment.
+  - Perform the [first three steps of the installation process](#installation) mentioned above (installing Poetry and configuring it to create virtual environments within the project directory) before activating the provided virtual environment.
