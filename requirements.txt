@@ -1,7 +1,0 @@
-fastapi[all]==0.103.1
-injector==0.21.0
-llama-index[local_models]==0.9.3
-gradio==4.4.1
-pydantic
-qdrant-client==1.6.9
-llama-cpp-python==0.2.23

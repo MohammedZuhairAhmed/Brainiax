@@ -17,10 +17,14 @@
    ```
    poetry install
    ```
+4. Run the setup file:
 
+   ```
+   python setup
+   ```
 ## Running the Project
 
-4. Run the project:
+5. Run the project:
    ```
    make run
    ```
@@ -41,12 +45,12 @@ If CPU usage is sufficient for your needs, the above steps are enough.
 
 #### Installation Steps:
 
-4. Set environment variable `CMAKE_ARGS` and install the necessary package (For Windows PowerShell):
+5. Set environment variable `CMAKE_ARGS` and install the necessary package (For Windows PowerShell):
 
    ```
    $env:CMAKE_ARGS='-DLLAMA_CUBLAS=on'; poetry run pip install --force-reinstall --no-cache-dir llama-cpp-python
    ```
-5. Run the project:
+6. Run the project:
 
    ```
    make run
