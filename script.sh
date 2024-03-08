@@ -1,2 +1,2 @@
-python setup
 poetry install
+python setup
