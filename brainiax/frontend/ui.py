@@ -1,13 +1,14 @@
 """This file should be imported only and only if you want to run the UI locally."""
 import itertools
 import logging
+import time
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
 import gradio as gr  # type: ignore
 from fastapi import FastAPI
-from gradio.themes.utils.colors import slate  # type: ignore
+from gradio.themes.utils.colors import emerald  # type: ignore
 from injector import inject, singleton
 from llama_index.llms import ChatMessage, ChatResponse, MessageRole
 from pydantic import BaseModel
@@ -15,6 +16,9 @@ from pydantic import BaseModel
 from brainiax.constants import PROJECT_ROOT_PATH
 from brainiax.di import global_injector
 from brainiax.server.chat.chat_service import ChatService, CompletionGen
+from brainiax.server.chunks.chunks_service import Chunk, ChunksService
+from brainiax.server.ingest.ingest_service import IngestService
+
 from brainiax.settings.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -27,7 +31,7 @@ UI_TAB_TITLE = "BRAINIAX : Academic Aid AI Chatbot"
 
 SOURCES_SEPARATOR = "\n\n Sources: \n"
 
-MODES = ["Query Docs", "Search in Docs", "LLM Chat"]
+MODES = ["Query Files", "Search Files", "LLM Chat (no context from files)"]
 
 class Source(BaseModel):
     file: str
@@ -36,17 +40,31 @@ class Source(BaseModel):
 
     class Config:
         frozen = True
+    
+    @staticmethod
+    def curate_sources(sources: list[Chunk]) -> set["Source"]:
+        curated_sources = set()
+
+        for chunk in sources:
+            doc_metadata = chunk.document.doc_metadata
+
+            file_name = doc_metadata.get("file_name", "-") if doc_metadata else "-"
+            page_label = doc_metadata.get("page_label", "-") if doc_metadata else "-"
+
+            source = Source(file=file_name, page=page_label, text=chunk.text)
+            curated_sources.add(source)
+
+        return curated_sources
 
 @singleton
 class BrainiaxUi:
     @inject
     def __init__(
         self,
-        ingest_service: None,
+        ingest_service: IngestService,
         chat_service: ChatService,
-        chunks_service: None,
+        chunks_service: ChunksService,
     ) -> None:
-        self.ingested_files = []
         self._ingest_service = ingest_service
         self._chat_service = chat_service
         self._chunks_service = chunks_service
@@ -68,7 +86,16 @@ class BrainiaxUi:
                 elif isinstance(delta, ChatResponse):
                     full_response += delta.delta or ""
                 yield full_response
+                time.sleep(0.02)
 
+            if completion_gen.sources:
+                full_response += SOURCES_SEPARATOR
+                cur_sources = Source.curate_sources(completion_gen.sources)
+                sources_text = "\n\n\n".join(
+                    f"{index}. {source.file} (page {source.page})"
+                    for index, source in enumerate(cur_sources, start=1)
+                )
+                full_response += sources_text   
             yield full_response
 
         def build_history() -> list[ChatMessage]:
@@ -103,18 +130,47 @@ class BrainiaxUi:
                 ),
             )
         match mode:
-            case "Query Docs":
+            case "Query Files":
                 yield "Still in development"
+            #     # Use only the selected file for the query
+            #     context_filter = None
+            #     if self._selected_filename is not None:
+            #         docs_ids = []
+            #         for ingested_document in self._ingest_service.list_ingested():
+            #             if (
+            #                 ingested_document.doc_metadata["file_name"]
+            #                 == self._selected_filename
+            #             ):
+            #                 docs_ids.append(ingested_document.doc_id)
 
-            case "LLM Chat":
-                llm_stream = self._chat_service.stream_chat(
-                    messages=all_messages,
-                    use_context=False,
+            #     query_stream = self._chat_service.stream_chat(
+            #         messages=all_messages,
+            #         use_context=True,
+            #         context_filter=None,
+            #     )
+            #     yield from yield_deltas(query_stream)
+
+
+            # case "LLM Chat (no context from files)":
+            #     llm_stream = self._chat_service.stream_chat(
+            #         messages=all_messages,
+            #         use_context=False,
+            #     )
+            #     yield from yield_deltas(llm_stream)
+
+            case "Search Files":
+                response = self._chunks_service.retrieve_relevant(
+                    text=message, limit=4, prev_next_chunks=0
                 )
-                yield from yield_deltas(llm_stream)
 
-            case "Search in Docs":
-                yield "Still in development"
+                sources = Source.curate_sources(response)
+
+                yield "\n\n\n".join(
+                    f"{index}. **{source.file} "
+                    f"(page {source.page})**\n "
+                    f"{source.text}"
+                    for index, source in enumerate(sources, start=1)
+                )
 
     # On initialization and on mode change, this function set the system prompt
     # to the default prompt based on the mode (and user settings).
@@ -123,10 +179,10 @@ class BrainiaxUi:
         p = ""
         match mode:
             # For query chat mode, obtain default system prompt from settings
-            case "Query Docs":
+            case "Query Files":
                 p = settings().ui.default_query_system_prompt
             # For chat mode, obtain default system prompt from settings
-            case "LLM Chat":
+            case "LLM Chat (no context from files)":
                 p = settings().ui.default_chat_system_prompt
             # For any other mode, clear the system prompt
             case _:
@@ -148,18 +204,90 @@ class BrainiaxUi:
             return gr.update(placeholder=self._system_prompt, interactive=False)
 
     def _list_ingested_files(self) -> list[list[str]]:
-        return [[file_name] for file_name in self.ingested_files]
-
+        files = set()
+        for ingested_document in self._ingest_service.list_ingested():
+            if ingested_document.doc_metadata is None:
+                # Skipping documents without metadata
+                continue
+            file_name = ingested_document.doc_metadata.get(
+                "file_name", "[FILE NAME MISSING]"
+            )
+            files.add(file_name)
+        return [[row] for row in files]
+    
     def _upload_file(self, files: list[str]) -> None:
         logger.debug("Loading count=%s files", len(files))
         paths = [Path(file) for file in files]
-        self.ingested_files = [str(path.name) for path in paths]
+
+        # remove all existing Documents with name identical to a new file upload:
+        file_names = [path.name for path in paths]
+        doc_ids_to_delete = []
+        for ingested_document in self._ingest_service.list_ingested():
+            if (
+                ingested_document.doc_metadata
+                and ingested_document.doc_metadata["file_name"] in file_names
+            ):
+                doc_ids_to_delete.append(ingested_document.doc_id)
+        if len(doc_ids_to_delete) > 0:
+            logger.info(
+                "Uploading file(s) which were already ingested: %s document(s) will be replaced.",
+                len(doc_ids_to_delete),
+            )
+            for doc_id in doc_ids_to_delete:
+                self._ingest_service.delete(doc_id)
+
+        self._ingest_service.bulk_ingest([(str(path.name), path) for path in paths])
     
+    def _delete_all_files(self) -> Any:
+        ingested_files = self._ingest_service.list_ingested()
+        logger.debug("Deleting count=%s files", len(ingested_files))
+        for ingested_document in ingested_files:
+            self._ingest_service.delete(ingested_document.doc_id)
+        return [
+            gr.List(self._list_ingested_files()),
+            gr.components.Button(interactive=False),
+            gr.components.Button(interactive=False),
+            gr.components.Textbox("All files"),
+        ]
+
+    def _delete_selected_file(self) -> Any:
+        logger.debug("Deleting selected %s", self._selected_filename)
+        # Note: keep looping for pdf's (each page became a Document)
+        for ingested_document in self._ingest_service.list_ingested():
+            if (
+                ingested_document.doc_metadata
+                and ingested_document.doc_metadata["file_name"]
+                == self._selected_filename
+            ):
+                self._ingest_service.delete(ingested_document.doc_id)
+        return [
+            gr.List(self._list_ingested_files()),
+            gr.components.Button(interactive=False),
+            gr.components.Button(interactive=False),
+            gr.components.Textbox("All files"),
+        ]
+
+    def _deselect_selected_file(self) -> Any:
+        self._selected_filename = None
+        return [
+            gr.components.Button(interactive=False),
+            gr.components.Button(interactive=False),
+            gr.components.Textbox("All files"),
+        ]
+
+    def _selected_a_file(self, select_data: gr.SelectData) -> Any:
+        self._selected_filename = select_data.value
+        return [
+            gr.components.Button(interactive=True),
+            gr.components.Button(interactive=True),
+            gr.components.Textbox(self._selected_filename),
+        ]
+
     def _build_ui_blocks(self) -> gr.Blocks:
         logger.debug("Creating the UI blocks")
         with gr.Blocks(
             title=UI_TAB_TITLE,
-            theme=gr.themes.Soft(primary_hue=slate),
+            theme=gr.themes.Soft(primary_hue=emerald),
             css="body { "
                 "margin: 0;"
                 "padding: 0;"
@@ -167,7 +295,7 @@ class BrainiaxUi:
                 "justify-content: center;"
                 "align-items: center;"
                 "height: 100vh;"
-                "background-color: #000000;"  # Set your desired background color
+                "background-color: #000000;"
                 "}"
                 ".logo { "
                 "display:flex;"
@@ -189,7 +317,7 @@ class BrainiaxUi:
                     mode = gr.Radio(
                         MODES,
                         label="Mode",
-                        value="Query Docs",
+                        value="Query Files",
                     )
                     upload_button = gr.components.UploadButton(
                         "Upload File(s)",
@@ -201,6 +329,7 @@ class BrainiaxUi:
                         self._list_ingested_files,
                         headers=["File name"],
                         label="Ingested Files",
+                        height=235,
                         interactive=False,
                         render=False,  # Rendered under the button
                     )
@@ -214,6 +343,58 @@ class BrainiaxUi:
                         outputs=ingested_dataset,
                     )
                     ingested_dataset.render()
+                    deselect_file_button = gr.components.Button(
+                        "De-select selected file", size="sm", interactive=False
+                    )
+                    selected_text = gr.components.Textbox(
+                        "All files", label="Selected for Query or Deletion", max_lines=1
+                    )
+                    delete_file_button = gr.components.Button(
+                        "🗑️ Delete selected file",
+                        size="sm",
+                        visible=settings().ui.delete_file_button_enabled,
+                        interactive=False,
+                    )
+                    delete_files_button = gr.components.Button(
+                        "⚠️ Delete ALL files",
+                        size="sm",
+                        visible=settings().ui.delete_all_files_button_enabled,
+                    )
+                    deselect_file_button.click(
+                        self._deselect_selected_file,
+                        outputs=[
+                            delete_file_button,
+                            deselect_file_button,
+                            selected_text,
+                        ],
+                    )
+                    ingested_dataset.select(
+                        fn=self._selected_a_file,
+                        outputs=[
+                            delete_file_button,
+                            deselect_file_button,
+                            selected_text,
+                        ],
+                    )
+                    delete_file_button.click(
+                        self._delete_selected_file,
+                        outputs=[
+                            ingested_dataset,
+                            delete_file_button,
+                            deselect_file_button,
+                            selected_text,
+                        ],
+                    )
+                    delete_files_button.click(
+                        self._delete_all_files,
+                        outputs=[
+                            ingested_dataset,
+                            delete_file_button,
+                            deselect_file_button,
+                            selected_text,
+                        ],
+                    )
+
                     system_prompt_input = gr.Textbox(
                         placeholder=self._system_prompt,
                         label="System Prompt",
