@@ -1,0 +1,2 @@
+python setup
+poetry install
