@@ -1,8 +1,9 @@
 from typing import TYPE_CHECKING, Literal
 
 from injector import inject, singleton
-from llama_index import ServiceContext, StorageContext, VectorStoreIndex
-from llama_index.schema import NodeWithScore
+from llama_index.core.indices import VectorStoreIndex
+from llama_index.core.schema import NodeWithScore
+from llama_index.core.storage import StorageContext
 from pydantic import BaseModel, Field
 
 from brainiax.components.embedding.embedding_component import EmbeddingComponent
@@ -11,10 +12,12 @@ from brainiax.components.node_store.node_store_component import NodeStoreCompone
 from brainiax.components.vector_store.vector_store_component import (
     VectorStoreComponent,
 )
+from brainiax.components.context_filter import ContextFilter
 from brainiax.server.ingest.model import IngestedDoc
 
+
 if TYPE_CHECKING:
-    from llama_index.schema import RelatedNodeInfo
+    from llama_index.core.schema import RelatedNodeInfo
 
 
 class Chunk(BaseModel):
@@ -62,13 +65,12 @@ class ChunksService:
         node_store_component: NodeStoreComponent,
     ) -> None:
         self.vector_store_component = vector_store_component
+        self.llm_component = llm_component
+        self.embedding_component = embedding_component
         self.storage_context = StorageContext.from_defaults(
             vector_store=vector_store_component.vector_store,
             docstore=node_store_component.doc_store,
             index_store=node_store_component.index_store,
-        )
-        self.query_service_context = ServiceContext.from_defaults(
-            llm=llm_component.llm, embed_model=embedding_component.embedding_model
         )
 
     def _get_sibling_nodes_text(
@@ -95,14 +97,15 @@ class ChunksService:
     def retrieve_relevant(
         self,
         text: str,
-        context_filter: None = None,
+        context_filter: ContextFilter | None = None,
         limit: int = 10,
         prev_next_chunks: int = 0,
     ) -> list[Chunk]:
         index = VectorStoreIndex.from_vector_store(
             self.vector_store_component.vector_store,
             storage_context=self.storage_context,
-            service_context=self.query_service_context,
+            llm=self.llm_component.llm,
+            embed_model=self.embedding_component.embedding_model,
             show_progress=True,
         )
         vector_index_retriever = self.vector_store_component.get_retriever(

@@ -4,6 +4,9 @@ import logging
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from injector import Injector
+from llama_index.core.callbacks import CallbackManager
+from llama_index.core.callbacks.global_handlers import create_global_handler
+from llama_index.core.settings import Settings as LlamaIndexSettings
 
 from brainiax.settings.settings import Settings
 
@@ -16,6 +19,10 @@ def create_app(root_injector: Injector) -> FastAPI:
         request.state.injector = root_injector
 
     app = FastAPI(dependencies=[Depends(bind_injector_to_request)])
+
+    # Add LlamaIndex simple observability
+    global_handler = create_global_handler("simple")
+    LlamaIndexSettings.callback_manager = CallbackManager([global_handler])
 
     settings = root_injector.get(Settings)
     if settings.server.cors.enabled:

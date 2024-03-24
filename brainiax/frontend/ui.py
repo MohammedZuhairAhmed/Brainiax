@@ -10,11 +10,12 @@ import gradio as gr  # type: ignore
 from fastapi import FastAPI
 from gradio.themes.utils.colors import emerald  # type: ignore
 from injector import inject, singleton
-from llama_index.llms import ChatMessage, ChatResponse, MessageRole
+from llama_index.core.llms import ChatMessage, ChatResponse, MessageRole
 from pydantic import BaseModel
 
 from brainiax.constants import PROJECT_ROOT_PATH
 from brainiax.di import global_injector
+from brainiax.components.context_filter import ContextFilter
 from brainiax.server.chat.chat_service import ChatService, CompletionGen
 from brainiax.server.chunks.chunks_service import Chunk, ChunksService
 from brainiax.server.ingest.ingest_service import IngestService
@@ -33,6 +34,9 @@ SOURCES_SEPARATOR = "\n\n Sources: \n"
 
 MODES = ["Query Files", "Search Files", "LLM Chat (no context from files)"]
 
+MODES = ["Query Files", "Search Files", "LLM Chat (no context from files)"]
+
+
 class Source(BaseModel):
     file: str
     page: str
@@ -40,10 +44,10 @@ class Source(BaseModel):
 
     class Config:
         frozen = True
-    
+
     @staticmethod
-    def curate_sources(sources: list[Chunk]) -> set["Source"]:
-        curated_sources = set()
+    def curate_sources(sources: list[Chunk]) -> list["Source"]:
+        curated_sources = []
 
         for chunk in sources:
             doc_metadata = chunk.document.doc_metadata
@@ -52,9 +56,13 @@ class Source(BaseModel):
             page_label = doc_metadata.get("page_label", "-") if doc_metadata else "-"
 
             source = Source(file=file_name, page=page_label, text=chunk.text)
-            curated_sources.add(source)
+            curated_sources.append(source)
+            curated_sources = list(
+                dict.fromkeys(curated_sources).keys()
+            )  # Unique sources only
 
         return curated_sources
+
 
 @singleton
 class BrainiaxUi:
@@ -71,6 +79,8 @@ class BrainiaxUi:
 
         # Cache the UI blocks
         self._ui_block = None
+
+        self._selected_filename = None
 
         # Initialize system prompt based on default mode
         self.mode = MODES[0]
@@ -91,11 +101,16 @@ class BrainiaxUi:
             if completion_gen.sources:
                 full_response += SOURCES_SEPARATOR
                 cur_sources = Source.curate_sources(completion_gen.sources)
-                sources_text = "\n\n\n".join(
-                    f"{index}. {source.file} (page {source.page})"
-                    for index, source in enumerate(cur_sources, start=1)
-                )
-                full_response += sources_text   
+                sources_text = "\n\n\n"
+                used_files = set()
+                for index, source in enumerate(cur_sources, start=1):
+                    if (source.file + "-" + source.page) not in used_files:
+                        sources_text = (
+                            sources_text
+                            + f"{index}. {source.file} (page {source.page}) \n\n"
+                        )
+                        used_files.add(source.file + "-" + source.page)
+                full_response += sources_text
             yield full_response
 
         def build_history() -> list[ChatMessage]:
@@ -131,32 +146,31 @@ class BrainiaxUi:
             )
         match mode:
             case "Query Files":
-                yield "Still in development"
-            #     # Use only the selected file for the query
-            #     context_filter = None
-            #     if self._selected_filename is not None:
-            #         docs_ids = []
-            #         for ingested_document in self._ingest_service.list_ingested():
-            #             if (
-            #                 ingested_document.doc_metadata["file_name"]
-            #                 == self._selected_filename
-            #             ):
-            #                 docs_ids.append(ingested_document.doc_id)
 
-            #     query_stream = self._chat_service.stream_chat(
-            #         messages=all_messages,
-            #         use_context=True,
-            #         context_filter=None,
-            #     )
-            #     yield from yield_deltas(query_stream)
+                # Use only the selected file for the query
+                context_filter = None
+                if self._selected_filename is not None:
+                    docs_ids = []
+                    for ingested_document in self._ingest_service.list_ingested():
+                        if (
+                            ingested_document.doc_metadata["file_name"]
+                            == self._selected_filename
+                        ):
+                            docs_ids.append(ingested_document.doc_id)
+                    context_filter = ContextFilter(docs_ids=docs_ids)
 
-
-            # case "LLM Chat (no context from files)":
-            #     llm_stream = self._chat_service.stream_chat(
-            #         messages=all_messages,
-            #         use_context=False,
-            #     )
-            #     yield from yield_deltas(llm_stream)
+                query_stream = self._chat_service.stream_chat(
+                    messages=all_messages,
+                    use_context=True,
+                    context_filter=context_filter,
+                )
+                yield from yield_deltas(query_stream)
+            case "LLM Chat (no context from files)":
+                llm_stream = self._chat_service.stream_chat(
+                    messages=all_messages,
+                    use_context=False,
+                )
+                yield from yield_deltas(llm_stream)
 
             case "Search Files":
                 response = self._chunks_service.retrieve_relevant(
@@ -214,7 +228,7 @@ class BrainiaxUi:
             )
             files.add(file_name)
         return [[row] for row in files]
-    
+
     def _upload_file(self, files: list[str]) -> None:
         logger.debug("Loading count=%s files", len(files))
         paths = [Path(file) for file in files]
@@ -237,7 +251,7 @@ class BrainiaxUi:
                 self._ingest_service.delete(doc_id)
 
         self._ingest_service.bulk_ingest([(str(path.name), path) for path in paths])
-    
+
     def _delete_all_files(self) -> Any:
         ingested_files = self._ingest_service.list_ingested()
         logger.debug("Deleting count=%s files", len(ingested_files))
@@ -394,7 +408,6 @@ class BrainiaxUi:
                             selected_text,
                         ],
                     )
-
                     system_prompt_input = gr.Textbox(
                         placeholder=self._system_prompt,
                         label="System Prompt",
