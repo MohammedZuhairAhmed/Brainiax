@@ -18,20 +18,6 @@ class EmbeddingComponent:
         embedding_mode = settings.embedding.mode
         logger.info("Initializing the embedding model in mode=%s", embedding_mode)
         match embedding_mode:
-            case "huggingface":
-                try:
-                    from llama_index.embeddings.huggingface import (  # type: ignore
-                        HuggingFaceEmbedding,
-                    )
-                except ImportError as e:
-                    raise ImportError(
-                        "Local dependencies not found, install with `poetry install --extras embeddings-huggingface`"
-                    ) from e
-
-                self.embedding_model = HuggingFaceEmbedding(
-                    model_name=settings.huggingface.embedding_hf_model_name,
-                    cache_folder=str(models_cache_path),
-                )
             case "mock":
                 # Not a random number, is the dimensionality used by
                 # the default embedding model
