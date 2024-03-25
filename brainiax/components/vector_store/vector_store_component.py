@@ -10,7 +10,7 @@ from llama_index.core.vector_stores.types import (
     VectorStore,
 )
 
-from brainiax.components.context_filter import ContextFilter
+from brainiax.open_ai.extensions.context_filter import ContextFilter
 from brainiax.paths import local_data_path
 from brainiax.settings.settings import Settings
 

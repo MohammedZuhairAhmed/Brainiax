@@ -23,7 +23,7 @@ from brainiax.components.vector_store.vector_store_component import (
 )
 
 from brainiax.server.chunks.chunks_service import Chunk
-from brainiax.components.context_filter import ContextFilter
+from brainiax.open_ai.extensions.context_filter import ContextFilter
 from brainiax.settings.settings import Settings
 
 class Completion(BaseModel):

@@ -12,7 +12,7 @@ from brainiax.components.node_store.node_store_component import NodeStoreCompone
 from brainiax.components.vector_store.vector_store_component import (
     VectorStoreComponent,
 )
-from brainiax.components.context_filter import ContextFilter
+from brainiax.open_ai.extensions.context_filter import ContextFilter
 from brainiax.server.ingest.model import IngestedDoc
 
 

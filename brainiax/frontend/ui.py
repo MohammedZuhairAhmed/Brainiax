@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 from brainiax.constants import PROJECT_ROOT_PATH
 from brainiax.di import global_injector
-from brainiax.components.context_filter import ContextFilter
+from brainiax.open_ai.extensions.context_filter import ContextFilter
 from brainiax.server.chat.chat_service import ChatService, CompletionGen
 from brainiax.server.chunks.chunks_service import Chunk, ChunksService
 from brainiax.server.ingest.ingest_service import IngestService
@@ -33,9 +33,6 @@ UI_TAB_TITLE = "BRAINIAX : Academic Aid AI Chatbot"
 SOURCES_SEPARATOR = "\n\n Sources: \n"
 
 MODES = ["Query Files", "Search Files", "LLM Chat (no context from files)"]
-
-MODES = ["Query Files", "Search Files", "LLM Chat (no context from files)"]
-
 
 class Source(BaseModel):
     file: str
