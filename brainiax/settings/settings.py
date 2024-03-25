@@ -82,7 +82,7 @@ class DataSettings(BaseModel):
 
 class LLMSettings(BaseModel):
     mode: Literal[
-        "llamacpp", "mock", "ollama"
+        "local"
     ]
     max_new_tokens: int = Field(
         256,
@@ -107,47 +107,6 @@ class LLMSettings(BaseModel):
 
 class VectorstoreSettings(BaseModel):
     database: Literal["qdrant"]
-
-# class NodeStoreSettings(BaseModel):
-#     database: Literal["simple", "postgres"]
-
-# class LlamaCPPSettings(BaseModel):
-#     llm_hf_repo_id: str
-#     llm_hf_model_file: str
-#     prompt_style: Literal["default", "llama2", "tag", "mistral", "chatml"] = Field(
-#         "llama2",
-#         description=(
-#             "The prompt style to use for the chat engine. "
-#             "If `default` - use the default prompt style from the llama_index. It should look like `role: message`.\n"
-#             "If `llama2` - use the llama2 prompt style from the llama_index. Based on `<s>`, `[INST]` and `<<SYS>>`.\n"
-#             "If `tag` - use the `tag` prompt style. It should look like `<|role|>: message`. \n"
-#             "If `mistral` - use the `mistral prompt style. It shoudl look like <s>[INST] {System Prompt} [/INST]</s>[INST] { UserInstructions } [/INST]"
-#             "`llama2` is the historic behaviour. `default` might work better with your custom models."
-#         ),
-#     )
-
-#     tfs_z: float = Field(
-#         1.0,
-#         description="Tail free sampling is used to reduce the impact of less probable tokens from the output. A higher value (e.g., 2.0) will reduce the impact more, while a value of 1.0 disables this setting.",
-#     )
-#     top_k: int = Field(
-#         40,
-#         description="Reduces the probability of generating nonsense. A higher value (e.g. 100) will give more diverse answers, while a lower value (e.g. 10) will be more conservative. (Default: 40)",
-#     )
-#     top_p: float = Field(
-#         0.9,
-#         description="Works together with top-k. A higher value (e.g., 0.95) will lead to more diverse text, while a lower value (e.g., 0.5) will generate more focused and conservative text. (Default: 0.9)",
-#     )
-#     repeat_penalty: float = Field(
-#         1.1,
-#         description="Sets how strongly to penalize repetitions. A higher value (e.g., 1.5) will penalize repetitions more strongly, while a lower value (e.g., 0.9) will be more lenient. (Default: 1.1)",
-#     )
-
-
-# class HuggingFaceSettings(BaseModel):
-#     embedding_hf_model_name: str = Field(
-#         description="Name of the HuggingFace model to use for embeddings"
-#     )
 
 class OllamaSettings(BaseModel):
     api_base: str = Field(
@@ -193,30 +152,7 @@ class OllamaSettings(BaseModel):
 
 
 class EmbeddingSettings(BaseModel):
-    mode: Literal["ollama", "mock"]
-    ingest_mode: Literal["simple"] = Field(
-        "simple",
-        description=(
-            "The ingest mode to use for the embedding engine:\n"
-            "`simple` - ingest files sequentially and one by one. It is the historic behaviour.\n"
-        ),
-    )
-    # count_workers: int = Field(
-    #     2,
-    #     description=(
-    #         "The number of workers to use for file ingestion.\n"
-    #         "In `batch` mode, this is the number of workers used to parse the files.\n"
-    #         "In `parallel` mode, this is the number of workers used to parse the files and embed them.\n"
-    #         "In `pipeline` mode, this is the number of workers that can perform embeddings.\n"
-    #         "This is only used if `ingest_mode` is not `simple`.\n"
-    #         "Do not go too high with this number, as it might cause memory issues. (especially in `parallel` mode)\n"
-    #         "Do not set it higher than your number of threads of your CPU."
-    #     ),
-    # )
-    # embed_dim: int = Field(
-    #     384,
-    #     description="The dimension of the embeddings stored in the Postgres database",
-    # )
+    mode: Literal["local"]
 
 class UISettings(BaseModel):
     enabled: bool
