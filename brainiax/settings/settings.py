@@ -150,6 +150,11 @@ class OllamaSettings(BaseModel):
         description="Time elapsed until ollama times out the request. Default is 120s. Format is float. ",
     )
 
+class HuggingFaceSettings(BaseModel):
+    access_token: str = Field(
+        None,
+        description="Huggingface access token, required to download some models",
+    )
 
 class EmbeddingSettings(BaseModel):
     mode: Literal["local"]
@@ -242,6 +247,7 @@ class Settings(BaseModel):
     ui: UISettings
     llm: LLMSettings
     embedding: EmbeddingSettings
+    huggingface: HuggingFaceSettings
     ollama: OllamaSettings
     vectorstore: VectorstoreSettings
     rag: RagSettings

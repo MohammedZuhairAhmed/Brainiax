@@ -8,6 +8,9 @@ from llama_index.core.callbacks import CallbackManager
 from llama_index.core.callbacks.global_handlers import create_global_handler
 from llama_index.core.settings import Settings as LlamaIndexSettings
 
+from brainiax.server.chat.chat_router import chat_router
+from brainiax.server.embeddings.embeddings_router import embeddings_router
+from brainiax.server.ingest.ingest_router import ingest_router
 from brainiax.settings.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -19,6 +22,10 @@ def create_app(root_injector: Injector) -> FastAPI:
         request.state.injector = root_injector
 
     app = FastAPI(dependencies=[Depends(bind_injector_to_request)])
+
+    app.include_router(chat_router)
+    app.include_router(ingest_router)
+    app.include_router(embeddings_router)
 
     # Add LlamaIndex simple observability
     global_handler = create_global_handler("simple")

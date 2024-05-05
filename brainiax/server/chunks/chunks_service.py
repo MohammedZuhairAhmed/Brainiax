@@ -24,17 +24,17 @@ class Chunk(BaseModel):
     object: Literal["context.chunk"]
     score: float = Field(examples=[0.023])
     document: IngestedDoc
-    text: str = Field(examples=["Outbound sales increased 20%, driven by new leads."])
+    text: str = Field(examples=["Brainiax is an academic aid AI chatbot"])
     previous_texts: list[str] | None = Field(
         default=None,
-        examples=[["SALES REPORT 2023", "Inbound didn't show major changes."]],
+        examples=[["Retrival Augmented Generation", "Generative AI"]],
     )
     next_texts: list[str] | None = Field(
         default=None,
         examples=[
             [
-                "New leads came from Google Ads campaign.",
-                "The campaign was run by the Marketing Department",
+                "Newly Optimised Large Language Models",
+                "A survey on the Retrival vs Generative AI",
             ]
         ],
     )

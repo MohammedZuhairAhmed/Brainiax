@@ -49,7 +49,7 @@ class OpenAICompletion(BaseModel):
     id: str
     object: Literal["completion", "completion.chunk"] = Field(default="completion")
     created: int = Field(..., examples=[1623340000])
-    model: Literal["private-gpt"]
+    model: Literal["brainiax"]
     choices: list[OpenAIChoice]
 
     @classmethod
@@ -63,7 +63,7 @@ class OpenAICompletion(BaseModel):
             id=str(uuid.uuid4()),
             object="completion",
             created=int(time.time()),
-            model="private-gpt",
+            model="brainiax",
             choices=[
                 OpenAIChoice(
                     message=OpenAIMessage(role="assistant", content=text),
@@ -85,7 +85,7 @@ class OpenAICompletion(BaseModel):
             id=str(uuid.uuid4()),
             object="completion.chunk",
             created=int(time.time()),
-            model="private-gpt",
+            model="brainiax",
             choices=[
                 OpenAIChoice(
                     delta=OpenAIDelta(content=text),
